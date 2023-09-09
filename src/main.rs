@@ -19,6 +19,7 @@ struct Cli {
 pub enum Commands {
     Import(ImportParams),
     DeleteSome(run_delete::Params),
+    Count(print_remaining::Params),
 }
 
 #[derive(Args)]
@@ -66,8 +67,10 @@ fn do_start(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Import(it) => import::run(it),
         Commands::DeleteSome(it) => run_delete::run(it),
+        Commands::Count(it) => print_remaining::run(it),
     }
 }
 
 mod import;
 mod run_delete;
+mod print_remaining;
