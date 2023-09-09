@@ -1,4 +1,8 @@
-use std::{collections::HashSet, io::Read};
+use std::{
+    collections::HashSet,
+    io::Read,
+    time::Instant,
+};
 
 use anyhow::*;
 use clap::Args;
@@ -30,10 +34,8 @@ struct TweetDat {
 pub fn run(params: Params) -> Result<()> {
     let conn = Connection::open("tweets.db")?;
 
-    // Rumour has it that the limit is 900 calls per 15 minutes
-
     let mut stmt = conn
-        .prepare("SELECT t.id, t.is_rt FROM tweets t WHERE is_rt = 'false' LIMIT 100")
+        .prepare("SELECT t.id, t.is_rt FROM tweets t WHERE is_rt = 'false' LIMIT 1000")
         .expect("prepare select");
 
     let res = stmt
@@ -51,6 +53,7 @@ pub fn run(params: Params) -> Result<()> {
         .collect();
 
     for (i, tweet) in res.enumerate() {
+        let start = Instant::now();
         let tweet = tweet?;
         if exempt_tweet_ids.contains(&tweet.id) {
             warn!("Skipped deleting {:?} due to exemption.", tweet);
@@ -59,7 +62,10 @@ pub fn run(params: Params) -> Result<()> {
         }
         conn.execute("DELETE FROM tweets where id=?1", &[&tweet.id])
             .context("deleting it")?;
-        std::thread::sleep(Duration::from_millis(500));
+
+        // Rumour has it that the limit is 900 calls per 15 minutes = 1 tweet per second
+        let time_to_sleep = 1010_u128.saturating_sub(start.elapsed().as_millis()).clamp(100, 1500) as u64;
+        std::thread::sleep(Duration::from_millis(time_to_sleep));
     }
 
     let res = conn
