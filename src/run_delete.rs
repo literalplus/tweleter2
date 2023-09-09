@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    io::Read,
-    time::Instant,
-};
+use std::{collections::HashSet, io::Read, time::Instant};
 
 use anyhow::*;
 use clap::Args;
@@ -64,7 +60,10 @@ pub fn run(params: Params) -> Result<()> {
                 println!();
                 let err_str = format!("{:?}", e);
                 error!("Error during request: {}", err_str);
-                if err_str.contains("[28] Timeout was reached (Connection timed out after 3000") { // apparently the error message is sometimes off by a few milliseconds
+                if err_str.contains("[28] Timeout was reached (Connection timed out after 3000")
+                    // apparently the error message is sometimes off by a few milliseconds
+                    || err_str.contains("server-side timeout, please retry")
+                {
                     // Twitter infra does this every like 10 minutes, retry once after delay
                     warn!("Looks like timeout, retry after 10 seconds...");
                     std::thread::sleep(Duration::from_secs(10));
@@ -79,14 +78,18 @@ pub fn run(params: Params) -> Result<()> {
             .context("deleting it")?;
 
         // Rumour has it that the limit is 900 calls per 15 minutes = 1 tweet per second
-        let time_to_sleep = 1010_u128.saturating_sub(start.elapsed().as_millis()).clamp(100, 1500) as u64;
+        let time_to_sleep = 1010_u128
+            .saturating_sub(start.elapsed().as_millis())
+            .clamp(100, 1500) as u64;
         std::thread::sleep(Duration::from_millis(time_to_sleep));
     }
 
     let res = conn
-        .query_row("SELECT COUNT(*) FROM tweets WHERE is_rt = 'false'", [], |row| {
-            Result::Ok(row.get::<usize, u64>(0).expect("count"))
-        })
+        .query_row(
+            "SELECT COUNT(*) FROM tweets WHERE is_rt = 'false'",
+            [],
+            |row| Result::Ok(row.get::<usize, u64>(0).expect("count")),
+        )
         .expect("getting count");
     println!("{} (non-RT) tweets left.", res);
 
@@ -122,6 +125,14 @@ fn curl_it(params: &Params, tweet: &TweetDat, i: usize) -> Result<()> {
     println!("{}", response_str);
 
     if response_str != "{\"data\":{\"delete_tweet\":{\"tweet_results\":{}}}}" {
+        if response_str.contains("{\"errors\":[{\"message\":\"Timeout: Unspecified\"")
+            && response_str.contains(
+                "\"kind\":\"ServiceLevel\",\"name\":\"TimeoutError\",\"source\":\"Server\"",
+            )
+        {
+            warn!("Server-side timeout detected, one retry is permissible.");
+            bail!("server-side timeout, please retry");
+        }
         error!("This is an unexpected response body!");
         bail!("response body not as expected");
     }
