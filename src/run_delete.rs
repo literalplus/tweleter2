@@ -60,7 +60,20 @@ pub fn run(params: Params) -> Result<()> {
         if exempt_tweet_ids.contains(&tweet.id) {
             warn!("Skipped deleting {:?} due to exemption.", tweet);
         } else {
-            curl_it(&params, &tweet, i)?;
+            if let Err(e) = curl_it(&params, &tweet, i) {
+                println!();
+                let err_str = format!("{:?}", e);
+                error!("Error during request: {}", err_str);
+                if err_str.contains("Connection timed out after 30001 milliseconds") {
+                    // Twitter infra does this every like 10 minutes, retry once after delay
+                    warn!("Looks like timeout, retry after 10 seconds...");
+                    std::thread::sleep(Duration::from_secs(10));
+                    curl_it(&params, &tweet, i).context("second attempt")?;
+                } else {
+                    error!("Unknown type of error, not retrying.");
+                    return Err(e);
+                }
+            }
         }
         conn.execute("DELETE FROM tweets where id=?1", &[&tweet.id])
             .context("deleting it")?;
@@ -155,7 +168,7 @@ fn do_transfer(mut curl: Easy, mut request_body: &[u8]) -> Result<Vec<u8>> {
                 Result::Ok(dat.len())
             })
             .expect("write to work");
-        transfer.perform().expect("it to perform");
+        transfer.perform()?;
     }
 
     Ok(response_body)
