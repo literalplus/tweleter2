@@ -6,8 +6,8 @@ To set it up, copy the necessary values from your browser dev tools into `.env`.
 
 For the import, remove the weird JS stuff from the first line of `tweets.js` so that it becomes valid JSON.
 
-Then: `cargo run -- import PATH-TO-TWEETS-JS`
+Then: `cargo run --release -- import PATH-TO-TWEETS-JS`
 
-To delete a batch of tweets: `cargo run -- delete-some`
+To delete a batch of tweets: `cargo run --release -- delete-some`
 
 Please note that the Twitter API has some rate limits, so you need to do this more often.

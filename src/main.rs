@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use anyhow::*;
 use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use flexi_logger::{colored_default_format, detailed_format, Logger, LoggerHandle, WriteMode};
 use human_panic::setup_panic;
-use log::{debug, warn, Level};
+use log::{warn, Level};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -40,16 +38,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let logger = configure_log_from(&cli)?;
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .with_context(|| "Failed to start Tokio runtime")?;
-    let _guard = runtime.enter();
-
     let res = do_start(cli);
-
-    debug!("Waiting up to 15 seconds for remaining tasks to finish");
-    runtime.shutdown_timeout(Duration::from_secs(15));
 
     // Important with non-direct write mode
     // Handle needs to be kept alive until end of program

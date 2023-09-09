@@ -1,9 +1,9 @@
-use std::io::Read;
+use std::{collections::HashSet, io::Read};
 
 use anyhow::*;
 use clap::Args;
 use curl::easy::{Easy, List};
-use log::error;
+use log::{error, warn};
 use rusqlite::Connection;
 use std::time::Duration;
 
@@ -17,6 +17,9 @@ pub struct Params {
     auth_token: String,
     #[arg(long, env = "CSRF_TOKEN")]
     csrf_token: String,
+
+    #[arg(long, env = "EXEMPT_TWEET_IDS")]
+    exempt_tweet_ids: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -41,9 +44,19 @@ pub fn run(params: Params) -> Result<()> {
         })
         .expect("extract result");
 
+    let exempt_tweet_ids: HashSet<String> = params
+        .exempt_tweet_ids
+        .iter()
+        .map(|it| it.to_owned())
+        .collect();
+
     for (i, tweet) in res.enumerate() {
         let tweet = tweet?;
-        curl_it(&params, &tweet, i)?;
+        if exempt_tweet_ids.contains(&tweet.id) {
+            warn!("Skipped deleting {:?} due to exemption.", tweet);
+        } else {
+            curl_it(&params, &tweet, i)?;
+        }
         conn.execute("DELETE FROM tweets where id=?1", &[&tweet.id])
             .context("deleting it")?;
         std::thread::sleep(Duration::from_millis(500));
