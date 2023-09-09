@@ -90,6 +90,9 @@ fn curl_it(params: &Params, tweet: &TweetDat, i: usize) -> Result<()> {
     curl.url(&url)?;
     curl.post(true)?;
 
+    // Sometimes, Twitter just randomly blocks forever or so
+    curl.timeout(Duration::from_secs(5))?;
+
     set_headers(&mut curl, params).context("setting headers")?;
 
     let data = format!(
