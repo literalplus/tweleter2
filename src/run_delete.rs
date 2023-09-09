@@ -64,7 +64,7 @@ pub fn run(params: Params) -> Result<()> {
                 println!();
                 let err_str = format!("{:?}", e);
                 error!("Error during request: {}", err_str);
-                if err_str.contains("Connection timed out after 30001 milliseconds") {
+                if err_str.contains("[28] Timeout was reached (Connection timed out after 3000") { // apparently the error message is sometimes off by a few milliseconds
                     // Twitter infra does this every like 10 minutes, retry once after delay
                     warn!("Looks like timeout, retry after 10 seconds...");
                     std::thread::sleep(Duration::from_secs(10));
