@@ -69,11 +69,11 @@ pub fn run(params: Params) -> Result<()> {
     }
 
     let res = conn
-        .query_row("SELECT COUNT(*) FROM tweets", [], |row| {
+        .query_row("SELECT COUNT(*) FROM tweets WHERE is_rt = 'false'", [], |row| {
             Result::Ok(row.get::<usize, u64>(0).expect("count"))
         })
         .expect("getting count");
-    println!("{} tweets left.", res);
+    println!("{} (non-RT) tweets left.", res);
 
     Ok(())
 }
