@@ -24,6 +24,8 @@ pub struct Params {
 
     #[arg(long, env = "EXEMPT_TWEET_IDS")]
     exempt_tweet_ids: Vec<String>,
+    #[arg(long, env = "TWEET_LIMIT", default_value = "1000")]
+    tweet_limit: u64,
 }
 
 #[derive(Debug)]
@@ -35,11 +37,11 @@ pub fn run(params: Params) -> Result<()> {
     let conn = Connection::open("tweets.db")?;
 
     let mut stmt = conn
-        .prepare("SELECT t.id, t.is_rt FROM tweets t WHERE is_rt = 'false' LIMIT 1000")
+        .prepare("SELECT t.id, t.is_rt FROM tweets t WHERE is_rt = 'false' LIMIT ?1")
         .expect("prepare select");
 
     let res = stmt
-        .query_map([], |row| {
+        .query_map([params.tweet_limit], |row| {
             Result::Ok(TweetDat {
                 id: row.get(0).expect("id"),
             })
