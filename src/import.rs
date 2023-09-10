@@ -7,9 +7,15 @@ pub fn run(params: ImportParams) -> Result<()> {
     let conn = Connection::open("tweets.db")?;
 
     conn.execute(
-        "create table if not exists tweets (id varchar(255) primary key, is_rt varchar(255) not null)",
+        "create table if not exists tweets (
+                id varchar(255) primary key,
+                is_rt varchar(255) not null,
+                faves bigint not null default 0,
+                rts bigint not null default 0
+            )",
         [],
-    ).expect("create table");
+    )
+    .expect("create table");
 
     let infile = std::fs::File::open(params.file).expect("during open infile");
     let tweets: Vec<Value> = serde_json::from_reader(infile)?;
@@ -25,9 +31,22 @@ pub fn run(params: ImportParams) -> Result<()> {
             .get("full_text")
             .map(|it| it.as_str().unwrap_or_default())
             .unwrap_or_default();
+        let fave_count = tweet
+            .get("favorite_count")
+            .map(|it| it.as_str().unwrap_or_default())
+            .map(|it| it.parse::<u64>().unwrap_or_default())
+            .unwrap_or_default();
+        let rt_count = tweet
+            .get("retweet_count")
+            .map(|it| it.as_str().unwrap_or_default())
+            .map(|it| it.parse::<u64>().unwrap_or_default())
+            .unwrap_or_default();
         let is_rt = full_text.starts_with("RT @");
         print!(".");
-        conn.execute("insert into tweets (id, is_rt) values (?1, ?2)", &[id, &is_rt.to_string()])?;
+        conn.execute(
+            "insert into tweets (id, is_rt, faves, rts) values (?1, ?2, ?3, ?4)",
+            (id, is_rt.to_string(), fave_count, rt_count),
+        )?;
     }
 
     Ok(())
