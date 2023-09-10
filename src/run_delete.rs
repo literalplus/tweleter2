@@ -3,7 +3,7 @@ use std::{collections::HashSet, io::Read, time::Instant};
 use anyhow::*;
 use clap::Args;
 use curl::easy::{Easy, List};
-use log::{error, warn};
+use log::{error, info, warn};
 use rusqlite::Connection;
 use std::time::Duration;
 
@@ -18,7 +18,7 @@ pub struct Params {
     #[arg(long, env = "CSRF_TOKEN")]
     csrf_token: String,
 
-    #[arg(long, env = "EXEMPT_TWEET_IDS")]
+    #[arg(long, env = "EXEMPT_TWEET_IDS", value_delimiter = ',')]
     exempt_tweet_ids: Vec<String>,
     #[arg(long, env = "TWEET_LIMIT", default_value = "1000")]
     tweet_limit: u64,
@@ -36,6 +36,11 @@ struct TweetDat {
 
 pub fn run(params: Params) -> Result<()> {
     let conn = Connection::open("tweets.db")?;
+
+    info!(
+        "Running with max-faves={} and max-rts={}, excluding tweet IDs: {:?}",
+        params.exempt_fave_count, params.exempt_rt_count, params.exempt_tweet_ids
+    );
 
     let mut stmt = conn
         .prepare(
